@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WooCommerce CSV Order Processor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .step {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border-radius: 50%;
+            line-height: 50px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .step-title {
+            font-size: 1.8rem;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .step-description {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            font-size: 1.2rem;
+            padding: 16px 32px;
+            margin: 20px 0;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .file-upload {
+            border: 2px dashed #d1d5db;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload:hover {
+            border-color: #4f46e5;
+            background: #f8fafc;
+        }
+
+        .file-upload.dragover {
+            border-color: #4f46e5;
+            background: #ede9fe;
+        }
+
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .orders-table th, .orders-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .orders-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .orders-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .checkbox {
+            width: 18px;
+            height: 18px;
+        }
+
+        .status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            transition: width 0.3s ease;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+
+        .mapping-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+
+        .mapping-column {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .mapping-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .summary-card {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .mapping-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .orders-table {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>WooCommerce CSV Processor</h1>
+            <p>Importa ordini da WooCommerce e popola il tuo file CSV in modo automatico</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Step 1: WooCommerce Connection -->
+            <div class="step active" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <h2 class="step-title">Connessione WooCommerce</h2>
+                    <p class="step-description">Inserisci le credenziali API del tuo store WooCommerce</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="storeUrl">URL del Store</label>
+                    <input type="url" id="storeUrl" placeholder="https://tuostore.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="consumerKey">Consumer Key</label>
+                    <input type="text" id="consumerKey" placeholder="ck_..." required>
+                </div>
+
+                <div class="form-group">
+                    <label for="consumerSecret">Consumer Secret</label>
+                    <input type="password" id="consumerSecret" placeholder="cs_..." required>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="testConnection()">
+                        <span id="testBtnText">Testa Connessione</span>
+                        <span id="testBtnLoader" class="loading hidden"></span>
+                    </button>
+                    <button class="btn btn-primary" onclick="nextStep(2)" id="connectNextBtn" disabled>Continua</button>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="clearStoredData()">Cancella Dati Salvati</button>
+                    <button class="btn btn-secondary" onclick="showTroubleshooting()">🔧 Risoluzione Problemi</button>
+                </div>
+
+                <div id="connectionResult"></div>
+            </div>
+
+            <!-- Step 2: CSV Upload -->
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <h2 class="step-title">Carica Template CSV</h2>
+                    <p class="step-description">Carica il tuo file CSV template per la spedizione</p>
+                </div>
+
+                <div class="file-upload" id="csvUpload">
+                    <div>
+                        <h3>📁 Trascina qui il tuo file CSV</h3>
+                        <p>oppure clicca per selezionarlo</p>
+                        <input type="file" id="csvFile" accept=".csv" style="display: none;">
+                    </div>
+                </div>
+
+                <div id="csvPreview"></div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep(1)">Indietro</button>
+                    <button class="btn btn-primary" onclick="nextStep(3)" id="csvNextBtn" disabled>Continua</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Order Selection -->
+            <div class="step" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <h2 class="step-title">Seleziona Ordini</h2>
+                    <p class="step-description">Scegli gli ordini "In lavorazione" da processare</p>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="loadOrders()">
+                        <span id="loadOrdersText">Carica Ordini</span>
+                        <span id="loadOrdersLoader" class="loading hidden"></span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="selectAllOrders()">Seleziona Tutti</button>
+                    <button class="btn btn-secondary" onclick="deselectAllOrders()">Deseleziona Tutti</button>
+                </div>
+
+                <div id="ordersContainer"></div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep(2)">Indietro</button>
+                    <button class="btn btn-primary" onclick="nextStep(4)" id="ordersNextBtn" disabled>Continua</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Field Mapping -->
+            <div class="step" id="step4">
+                <div class="step-header">
+                    <div class="step-number">4</div>
+                    <h2 class="step-title">Mappatura Campi</h2>
+                    <p class="step-description">Verifica come i dati degli ordini saranno mappati nel CSV</p>
+                </div>
+
+                <div class="mapping-container" id="mappingContainer"></div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep(3)">Indietro</button>
+                    <button class="btn btn-primary" onclick="nextStep(5)">Continua</button>
+                </div>
+            </div>
+
+            <!-- Step 5: Process & Export -->
+            <div class="step" id="step5">
+                <div class="step-header">
+                    <div class="step-number">5</div>
+                    <h2 class="step-title">Elaborazione e Esportazione</h2>
+                    <p class="step-description">Processa i dati e scarica il CSV aggiornato</p>
+                </div>
+
+                <div class="summary-card" id="processSummary">
+                    <h3>Riepilogo Elaborazione</h3>
+                    <div id="summaryContent"></div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="processData()">
+                        <span id="processText">Elabora Dati</span>
+                        <span id="processLoader" class="loading hidden"></span>
+                    </button>
+                </div>
+
+                <div class="btn-group" id="exportSection" style="display: none;">
+                    <button class="btn btn-export" onclick="exportCSV()">
+                        📥 ESPORTA CSV
+                    </button>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep(4)">Indietro</button>
+                    <button class="btn btn-secondary" onclick="resetProcess()">Nuovo Processo</button>
+                </div>
+
+                <div id="processResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentStep = 1;
+        let wooCredentials = {};
+        let csvData = [];
+        let csvHeaders = [];
+        let selectedOrders = [];
+        let processedData = [];
+        let fieldMapping = {};
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStoredCredentials();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // CSV file upload
+            const csvUpload = document.getElementById('csvUpload');
+            const csvFile = document.getElementById('csvFile');
+
+            csvUpload.addEventListener('click', () => csvFile.click());
+            csvUpload.addEventListener('dragover', handleDragOver);
+            csvUpload.addEventListener('drop', handleDrop);
+            csvFile.addEventListener('change', handleFileSelect);
+
+            // Auto-save credentials
+            ['storeUrl', 'consumerKey', 'consumerSecret'].forEach(id => {
+                document.getElementById(id).addEventListener('input', saveCredentials);
+            });
+        }
+
+        // LocalStorage functions
+        function saveCredentials() {
+            const credentials = {
+                storeUrl: document.getElementById('storeUrl').value,
+                consumerKey: document.getElementById('consumerKey').value,
+                consumerSecret: document.getElementById('consumerSecret').value
+            };
+            localStorage.setItem('wooCredentials', btoa(JSON.stringify(credentials)));
+        }
+
+        function loadStoredCredentials() {
+            const stored = localStorage.getItem('wooCredentials');
+            if (stored) {
+                try {
+                    const credentials = JSON.parse(atob(stored));
+                    document.getElementById('storeUrl').value = credentials.storeUrl || '';
+                    document.getElementById('consumerKey').value = credentials.consumerKey || '';
+                    document.getElementById('consumerSecret').value = credentials.consumerSecret || '';
+                } catch (e) {
+                    console.error('Error loading stored credentials:', e);
+                }
+            }
+        }
+
+        function clearStoredData() {
+            if (confirm('Sei sicuro di voler cancellare tutti i dati salvati?')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // Step navigation
+        function nextStep(step) {
+            document.querySelector('.step.active').classList.remove('active');
+            document.getElementById(`step${step}`).classList.add('active');
+            currentStep = step;
+        }
+
+        function prevStep(step) {
+            document.querySelector('.step.active').classList.remove('active');
+            document.getElementById(`step${step}`).classList.add('active');
+            currentStep = step;
+        }
+
+        // Add CORS proxy fallback and alternative methods
+        async function testConnection() {
+            const storeUrl = document.getElementById('storeUrl').value.trim();
+            const consumerKey = document.getElementById('consumerKey').value.trim();
+            const consumerSecret = document.getElementById('consumerSecret').value.trim();
+
+            if (!storeUrl || !consumerKey || !consumerSecret) {
+                showAlert('Compila tutti i campi delle credenziali', 'error');
+                return;
+            }
+
+            // Normalize URL
+            let apiUrl = storeUrl;
+            if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+                apiUrl = 'https://' + apiUrl;
+            }
+            apiUrl = apiUrl.replace(/\/$/, ''); // Remove trailing slash
+
+            const testBtn = document.getElementById('testBtnText');
+            const loader = document.getElementById('testBtnLoader');
+            
+            testBtn.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            // Try multiple methods
+            let success = false;
+            let lastError = null;
+
+            // Method 1: Direct API call
+            try {
+                const testUrl = `${apiUrl}/wp-json/wc/v3/orders?per_page=1`;
+                console.log('Testing URL:', testUrl);
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(`${consumerKey}:${consumerSecret}`),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+
+                if (response.ok) {
+                    wooCredentials = { storeUrl: apiUrl, consumerKey, consumerSecret };
+                    showAlert('Connessione riuscita! ✅', 'success');
+                    document.getElementById('connectNextBtn').disabled = false;
+                    saveCredentials();
+                    success = true;
+                } else if (response.status === 401) {
+                    showAlert('Credenziali non valide. Verifica Consumer Key e Secret.', 'error');
+                } else if (response.status === 404) {
+                    showAlert('Endpoint WooCommerce non trovato. Verifica che WooCommerce sia installato e le API abilitate.', 'error');
+                } else {
+                    lastError = `HTTP ${response.status}: ${response.statusText}`;
+                }
+            } catch (error) {
+                lastError = error;
+                console.error('Direct connection failed:', error);
+            }
+
+            // Method 2: Try with URL parameters (for CORS-strict servers)
+            if (!success) {
+                try {
+                    const testUrlWithParams = `${apiUrl}/wp-json/wc/v3/orders?consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}&per_page=1`;
+                    console.log('Testing URL with params:', testUrlWithParams);
+                    
+                    const response = await fetch(testUrlWithParams, {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
+
+                    if (response.ok) {
+                        wooCredentials = { storeUrl: apiUrl, consumerKey, consumerSecret };
+                        showAlert('Connessione riuscita tramite parametri URL! ✅', 'success');
+                        document.getElementById('connectNextBtn').disabled = false;
+                        saveCredentials();
+                        success = true;
+                    }
+                } catch (error) {
+                    console.error('URL params method failed:', error);
+                }
+            }
+
+            // Method 3: Try JSONP-style callback (if supported)
+            if (!success) {
+                try {
+                    const jsonpUrl = `${apiUrl}/wp-json/wc/v3/orders?consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}&per_page=1&_jsonp=testCallback`;
+                    
+                    const response = await fetch(jsonpUrl, {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    });
+
+                    // With no-cors, we can't read the response, but if it doesn't throw, the URL is reachable
+                    wooCredentials = { storeUrl: apiUrl, consumerKey, consumerSecret };
+                    showAlert('⚠️ Connessione possibile ma limitata da CORS. L\'app funzionerà con limitazioni.', 'warning');
+                    document.getElementById('connectNextBtn').disabled = false;
+                    saveCredentials();
+                    success = true;
+                } catch (error) {
+                    console.error('JSONP method failed:', error);
+                }
+            }
+
+            if (!success) {
+                if (lastError && lastError.name === 'TypeError' && lastError.message.includes('Failed to fetch')) {
+                    showAlert(`
+                        <strong>🚨 Errore CORS confermato per ${apiUrl}</strong><br><br>
+                        <strong>Soluzioni immediate:</strong><br>
+                        1️⃣ <strong>Carica questa pagina su un server web</strong> (non da file locale)<br>
+                        2️⃣ <strong>Aggiungi CORS a WordPress:</strong> Usa il codice nella guida<br>
+                        3️⃣ <strong>Plugin CORS:</strong> Installa "CORS Plugin" o "WP CORS"<br><br>
+                        
+                        <strong>Test manuale API:</strong><br>
+                        <a href="${apiUrl}/wp-json/wc/v3/orders?consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}&per_page=1" target="_blank" style="color: #4f46e5;">
+                        🔗 Clicca qui per testare l'API direttamente
+                        </a><br><br>
+                        
+                        <small>Se il link sopra funziona, il problema è solo CORS.</small>
+                    `, 'error');
+                } else {
+                    showAlert('Errore di connessione: ' + (lastError?.message || lastError), 'error');
+                }
+            }
+
+            testBtn.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+
+        async function loadOrders() {
+            const loadText = document.getElementById('loadOrdersText');
+            const loader = document.getElementById('loadOrdersLoader');
+            
+            loadText.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${wooCredentials.storeUrl}/wp-json/wc/v3/orders?status=processing&per_page=100`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(`${wooCredentials.consumerKey}:${wooCredentials.consumerSecret}`),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+
+                if (response.ok) {
+                    const orders = await response.json();
+                    displayOrders(orders);
+                    if (orders.length > 0) {
+                        document.getElementById('ordersNextBtn').disabled = false;
+                    } else {
+                        showAlert('Nessun ordine "In lavorazione" trovato.', 'info');
+                    }
+                } else if (response.status === 401) {
+                    showAlert('Sessione scaduta. Ricontrolla le credenziali.', 'error');
+                } else {
+                    showAlert(`Errore nel caricamento degli ordini: HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                console.error('Load orders error:', error);
+                showAlert(`
+                    <strong>Errore nel caricamento ordini:</strong><br>
+                    ${error.message}<br>
+                    <small>Verifica la connessione internet e le impostazioni CORS del server.</small>
+                `, 'error');
+            }
+
+            loadText.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+
+        function displayOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+            
+            if (orders.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">Nessun ordine "In lavorazione" trovato.</div>';
+                return;
+            }
+
+            let html = `
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" class="checkbox" id="selectAll" onchange="toggleAllOrders()"></th>
+                            <th>ID Ordine</th>
+                            <th>Cliente</th>
+                            <th>Email</th>
+                            <th>Totale</th>
+                            <th>Data</th>
+                            <th>Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            orders.forEach(order => {
+                html += `
+                    <tr>
+                        <td><input type="checkbox" class="checkbox order-checkbox" value="${order.id}" onchange="updateOrderSelection()"></td>
+                        <td>#${order.id}</td>
+                        <td>${order.billing.first_name} ${order.billing.last_name}</td>
+                        <td>${order.billing.email}</td>
+                        <td>€${order.total}</td>
+                        <td>${new Date(order.date_created).toLocaleDateString('it-IT')}</td>
+                        <td><span class="status status-warning">In lavorazione</span></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+
+            // Store orders data
+            window.allOrders = orders;
+        }
+
+        function toggleAllOrders() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.order-checkbox');
+            
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            
+            updateOrderSelection();
+        }
+
+        function selectAllOrders() {
+            const checkboxes = document.querySelectorAll('.order-checkbox');
+            checkboxes.forEach(cb => cb.checked = true);
+            document.getElementById('selectAll').checked = true;
+            updateOrderSelection();
+        }
+
+        function deselectAllOrders() {
+            const checkboxes = document.querySelectorAll('.order-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            document.getElementById('selectAll').checked = false;
+            updateOrderSelection();
+        }
+
+        function updateOrderSelection() {
+            const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+            selectedOrders = Array.from(checkboxes).map(cb => {
+                const orderId = cb.value;
+                return window.allOrders.find(order => order.id == orderId);
+            });
+
+            document.getElementById('ordersNextBtn').disabled = selectedOrders.length === 0;
+        }
+
+        // CSV file handling
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showAlert('Seleziona un file CSV valido', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                parseCSV(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(csvText) {
+            Papa.parse(csvText, {
+                delimiter: ';',
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    csvData = results.data;
+                    csvHeaders = results.meta.fields;
+                    
+                    displayCSVPreview();
+                    document.getElementById('csvNextBtn').disabled = false;
+                    
+                    // Store CSV in localStorage
+                    localStorage.setItem('csvTemplate', JSON.stringify({
+                        data: csvData,
+                        headers: csvHeaders
+                    }));
+                },
+                error: function(error) {
+                    showAlert('Errore nel parsing del CSV: ' + error.message, 'error');
+                }
+            });
+        }
+
+        function displayCSVPreview() {
+            const preview = document.getElementById('csvPreview');
+            const emptyColumns = findEmptyColumns();
+            
+            let html = `
+                <div class="alert alert-success">
+                    CSV caricato con successo! <br>
+                    <strong>Righe:</strong> ${csvData.length} | 
+                    <strong>Colonne:</strong> ${csvHeaders.length} |
+                    <strong>Colonne vuote:</strong> ${emptyColumns.length}
+                </div>
+                <div class="summary-card">
+                    <h4>Colonne che saranno popolate:</h4>
+                    <ul>
+                        ${emptyColumns.map(col => `<li>${col}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            preview.innerHTML = html;
+        }
+
+        function findEmptyColumns() {
+            const emptyColumns = [];
+            
+            csvHeaders.forEach(header => {
+                const isEmpty = csvData.every(row => !row[header] || row[header].trim() === '');
+                if (isEmpty) {
+                    emptyColumns.push(header);
+                }
+            });
+            
+            return emptyColumns;
+        }
+
+        // Field mapping
+        function createFieldMapping() {
+            const emptyColumns = findEmptyColumns();
+            const mappingContainer = document.getElementById('mappingContainer');
+            
+            // Default mapping rules
+            const defaultMappings = {
+                'Numero di ordine': 'order_id',
+                'Nome destinatario': 'billing_first_name',
+                'Cognome destinatario': 'billing_last_name',
+                'Indirizzo di consegna 1': 'shipping_address_1',
+                'Indirizzo di consegna 2': 'shipping_address_2',
+                'CAP di consegna': 'shipping_postcode',
+                'citta di consegna': 'shipping_city',
+                'provincia di consegna': 'shipping_state',
+                'Paese di consegna': 'shipping_country',
+                'Telefono di consegna': 'billing_phone',
+                'Email di consegna': 'billing_email',
+                'Azienda destinatario': 'billing_company'
+            };
+
+            let mappingHtml = `
+                <div class="mapping-column">
+                    <h3>Colonne CSV Vuote</h3>
+                    ${emptyColumns.map(col => `
+                        <div class="mapping-item">
+                            <strong>${col}</strong>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="mapping-column">
+                    <h3>Dati WooCommerce</h3>
+                    ${emptyColumns.map(col => {
+                        const wooField = defaultMappings[col] || 'non_mappato';
+                        fieldMapping[col] = wooField;
+                        return `
+                            <div class="mapping-item">
+                                <span>${getWooFieldLabel(wooField)}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            
+            mappingContainer.innerHTML = mappingHtml;
+        }
+
+        function getWooFieldLabel(field) {
+            const labels = {
+                'order_id': 'ID Ordine',
+                'billing_first_name': 'Nome Cliente',
+                'billing_last_name': 'Cognome Cliente',
+                'billing_company': 'Azienda Cliente',
+                'billing_phone': 'Telefono Cliente',
+                'billing_email': 'Email Cliente',
+                'shipping_address_1': 'Indirizzo Spedizione 1',
+                'shipping_address_2': 'Indirizzo Spedizione 2',
+                'shipping_postcode': 'CAP Spedizione',
+                'shipping_city': 'Città Spedizione',
+                'shipping_state': 'Provincia Spedizione',
+                'shipping_country': 'Paese Spedizione',
+                'order_total': 'Totale Ordine',
+                'non_mappato': 'Non mappato'
+            };
+            return labels[field] || field;
+        }
+
+        // Data processing
+        async function processData() {
+            const processText = document.getElementById('processText');
+            const loader = document.getElementById('processLoader');
+            const progressFill = document.getElementById('progressFill');
+            
+            processText.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            try {
+                processedData = [...csvData]; // Clone original data
+                const emptyColumns = findEmptyColumns();
+                let processedCount = 0;
+
+                for (let i = 0; i < selectedOrders.length; i++) {
+                    const order = selectedOrders[i];
+                    
+                    // Find or create row for this order
+                    let rowIndex = processedData.findIndex(row => row['Numero di ordine'] == order.id);
+                    if (rowIndex === -1) {
+                        // Create new row
+                        const newRow = {};
+                        csvHeaders.forEach(header => {
+                            newRow[header] = '';
+                        });
+                        processedData.push(newRow);
+                        rowIndex = processedData.length - 1;
+                    }
+
+                    // Map order data to empty columns
+                    emptyColumns.forEach(column => {
+                        const wooField = fieldMapping[column];
+                        const value = getOrderFieldValue(order, wooField);
+                        if (value) {
+                            processedData[rowIndex][column] = value;
+                        }
+                    });
+
+                    processedCount++;
+                    const progress = (processedCount / selectedOrders.length) * 100;
+                    progressFill.style.width = progress + '%';
+
+                    // Small delay for visual feedback
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                showProcessSummary();
+                document.getElementById('exportSection').style.display = 'block';
+                showAlert('Elaborazione completata con successo! ✅', 'success');
+
+            } catch (error) {
+                showAlert('Errore durante l\'elaborazione: ' + error.message, 'error');
+            }
+
+            processText.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+
+        function getOrderFieldValue(order, field) {
+            switch (field) {
+                case 'order_id':
+                    return order.id;
+                case 'billing_first_name':
+                    return order.billing.first_name;
+                case 'billing_last_name':
+                    return order.billing.last_name;
+                case 'billing_company':
+                    return order.billing.company;
+                case 'billing_phone':
+                    return order.billing.phone;
+                case 'billing_email':
+                    return order.billing.email;
+                case 'shipping_address_1':
+                    return order.shipping.address_1 || order.billing.address_1;
+                case 'shipping_address_2':
+                    return order.shipping.address_2 || order.billing.address_2;
+                case 'shipping_postcode':
+                    return order.shipping.postcode || order.billing.postcode;
+                case 'shipping_city':
+                    return order.shipping.city || order.billing.city;
+                case 'shipping_state':
+                    return order.shipping.state || order.billing.state;
+                case 'shipping_country':
+                    return order.shipping.country || order.billing.country;
+                case 'order_total':
+                    return order.total;
+                default:
+                    return '';
+            }
+        }
+
+        function showProcessSummary() {
+            const summaryContent = document.getElementById('summaryContent');
+            const emptyColumns = findEmptyColumns();
+            
+            let html = `
+                <div class="summary-item">
+                    <span><strong>Ordini processati:</strong></span>
+                    <span>${selectedOrders.length}</span>
+                </div>
+                <div class="summary-item">
+                    <span><strong>Colonne popolate:</strong></span>
+                    <span>${emptyColumns.length}</span>
+                </div>
+                <div class="summary-item">
+                    <span><strong>Righe totali nel CSV:</strong></span>
+                    <span>${processedData.length}</span>
+                </div>
+                <div class="summary-item">
+                    <span><strong>Status:</strong></span>
+                    <span class="status status-success">Pronto per l'esportazione</span>
+                </div>
+            `;
+            
+            summaryContent.innerHTML = html;
+        }
+
+        // Export functionality
+        function exportCSV() {
+            try {
+                const csv = Papa.unparse(processedData, {
+                    delimiter: ';',
+                    header: true,
+                    columns: csvHeaders
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                
+                const now = new Date();
+                const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+                const filename = `orders_processed_${timestamp}.csv`;
+                
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Save export history
+                saveExportHistory(filename, selectedOrders.length);
+                
+                showAlert(`File ${filename} scaricato con successo! 📥`, 'success');
+
+            } catch (error) {
+                showAlert('Errore durante l\'esportazione: ' + error.message, 'error');
+            }
+        }
+
+        function saveExportHistory(filename, orderCount) {
+            const history = JSON.parse(localStorage.getItem('exportHistory') || '[]');
+            history.unshift({
+                filename,
+                orderCount,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('it-IT')
+            });
+            
+            // Keep only last 10 exports
+            if (history.length > 10) {
+                history.splice(10);
+            }
+            
+            localStorage.setItem('exportHistory', JSON.stringify(history));
+        }
+
+        // Utility functions
+        function showAlert(message, type) {
+            const alertHtml = `<div class="alert alert-${type}">${message}</div>`;
+            
+            // Find current step and add alert
+            const currentStepEl = document.querySelector('.step.active');
+            const existingAlert = currentStepEl.querySelector('.alert');
+            
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            const resultDiv = currentStepEl.querySelector('[id$="Result"]') || 
+                             currentStepEl.querySelector('.btn-group').parentNode;
+            resultDiv.insertAdjacentHTML('beforeend', alertHtml);
+
+            // Auto-remove after 5 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    const alert = currentStepEl.querySelector('.alert-success');
+                    if (alert) alert.remove();
+                }, 5000);
+            }
+        }
+
+        function resetProcess() {
+            if (confirm('Sei sicuro di voler iniziare un nuovo processo? I dati correnti andranno persi.')) {
+                selectedOrders = [];
+                processedData = [];
+                fieldMapping = {};
+                csvData = [];
+                csvHeaders = [];
+                
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('exportSection').style.display = 'none';
+                
+                nextStep(1);
+            }
+        }
+
+        // Initialize step 4 when reached
+        function initStep4() {
+            createFieldMapping();
+        }
+
+        // Override nextStep to handle step-specific initialization
+        const originalNextStep = nextStep;
+        nextStep = function(step) {
+            originalNextStep(step);
+            
+            if (step === 4) {
+                initStep4();
+            }
+        };
+
+        // Auto-save feature
+        window.addEventListener('beforeunload', function() {
+            if (processedData.length > 0) {
+                localStorage.setItem('processedData', JSON.stringify({
+                    data: processedData,
+                    orders: selectedOrders.length,
+                    timestamp: new Date().toISOString()
+                }));
+            }
+        });
+
+        // Load processed data on page load if available
+        window.addEventListener('load', function() {
+            const savedProcessed = localStorage.getItem('processedData');
+            if (savedProcessed) {
+                try {
+                    const data = JSON.parse(savedProcessed);
+                    const savedTime = new Date(data.timestamp);
+                    const now = new Date();
+                    const hoursDiff = (now - savedTime) / (1000 * 60 * 60);
+                    
+                    // Show recovery option if data is less than 24 hours old
+                    if (hoursDiff < 24) {
+                        if (confirm(`Trovati dati elaborati salvati (${data.orders} ordini, ${savedTime.toLocaleString('it-IT')}). Vuoi recuperarli?`)) {
+                            processedData = data.data;
+                            document.getElementById('exportSection').style.display = 'block';
+                            nextStep(5);
+                            showProcessSummary();
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error loading saved processed data:', e);
+                }
+            }
+        });
+
+        // Enhanced error handling for API calls
+        async function makeWooCommerceRequest(endpoint) {
+            const maxRetries = 3;
+            let lastError;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(`${wooCredentials.storeUrl}/wp-json/wc/v3/${endpoint}`, {
+                        headers: {
+                            'Authorization': 'Basic ' + btoa(`${wooCredentials.consumerKey}:${wooCredentials.consumerSecret}`),
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        return await response.json();
+                    } else if (response.status === 429) {
+                        // Rate limited, wait and retry
+                        await new Promise(resolve => setTimeout(resolve, (i + 1) * 1000));
+                        continue;
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                } catch (error) {
+                    lastError = error;
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+            }
+
+            throw lastError;
+        }
+
+        // Add export history viewer
+        function showExportHistory() {
+            const history = JSON.parse(localStorage.getItem('exportHistory') || '[]');
+            
+            if (history.length === 0) {
+                showAlert('Nessuna esportazione precedente trovata.', 'info');
+                return;
+            }
+
+            let historyHtml = `
+                <div class="summary-card">
+                    <h3>Cronologia Esportazioni</h3>
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>File</th>
+                                <th>Ordini</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            history.forEach(item => {
+                historyHtml += `
+                    <tr>
+                        <td>${item.date}</td>
+                        <td>${item.filename}</td>
+                        <td>${item.orderCount}</td>
+                    </tr>
+                `;
+            });
+
+            historyHtml += '</tbody></table></div>';
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5); display: flex; align-items: center;
+                justify-content: center; z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                    ${historyHtml}
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Chiudi</button>
+                    </div>
+                </div>
+            `;
+            modal.className = 'modal';
+            
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 's':
+                        e.preventDefault();
+                        if (processedData.length > 0) {
+                            exportCSV();
+                        }
+                        break;
+                    case 'h':
+                        e.preventDefault();
+                        showExportHistory();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        if (confirm('Ricaricare la pagina e perdere i dati correnti?')) {
+                            location.reload();
+                        }
+                        break;
+                }
+            }
+        });
+
+        // Add tooltips for help
+        const tooltips = {
+            'storeUrl': 'L\'URL completo del tuo store WooCommerce (es: https://miostore.com)',
+            'consumerKey': 'La chiave consumer API generata in WooCommerce > Impostazioni > Avanzate > REST API',
+            'consumerSecret': 'Il secret consumer API associato alla chiave'
+        };
+
+        Object.keys(tooltips).forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.title = tooltips[id];
+            }
+        });
+
+        // Add troubleshooting guide
+        function showTroubleshooting() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5); display: flex; align-items: center;
+                justify-content: center; z-index: 1000; padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; max-width: 700px; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="color: #4f46e5; margin-bottom: 20px;">🔧 Risoluzione Problemi "Failed to fetch"</h2>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #374151;">1. Problemi CORS (Cross-Origin)</h3>
+                        <ul style="margin-left: 20px; line-height: 1.6;">
+                            <li><strong>Usa HTTPS:</strong> Assicurati che il tuo store WooCommerce usi HTTPS</li>
+                            <li><strong>File locale:</strong> Carica questa pagina su un server web invece di aprirla da file locale</li>
+                            <li><strong>Plugin CORS:</strong> Installa un plugin CORS su WordPress (es: "CORS Plugin")</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #374151;">2. Configurazione WooCommerce</h3>
+                        <ul style="margin-left: 20px; line-height: 1.6;">
+                            <li><strong>API REST abilitate:</strong> WooCommerce > Impostazioni > Avanzate > REST API</li>
+                            <li><strong>Permessi chiave:</strong> Verifica che la chiave API abbia permessi "Lettura/Scrittura"</li>
+                            <li><strong>SSL certificato:</strong> Controlla che il certificato SSL sia valido</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #374151;">3. Test manuale API</h3>
+                        <p style="margin-left: 20px; line-height: 1.6;">
+                            Prova questo URL nel browser:<br>
+                            <code style="background: #f3f4f6; padding: 5px; border-radius: 3px; word-break: break-all;">
+                                https://tuostore.com/wp-json/wc/v3/orders?consumer_key=TUA_KEY&consumer_secret=TUO_SECRET&per_page=1
+                            </code>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #374151;">4. Plugin WordPress consigliati</h3>
+                        <ul style="margin-left: 20px; line-height: 1.6;">
+                            <li><strong>CORS Plugin</strong> - Per abilitare richieste cross-origin</li>
+                            <li><strong>WP REST API Controller</strong> - Per controllo API avanzato</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: #fee2e2; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
+                        <strong>🚨 Per il tuo sito anagenpower.it:</strong><br><br>
+                        
+                        <strong>Soluzione IMMEDIATA - Aggiungi questo codice:</strong><br>
+                        Vai su <strong>WordPress Admin > Aspetto > Editor Temi > functions.php</strong><br>
+                        Aggiungi questo codice alla fine del file:<br>
+                        <code style="display: block; margin: 10px 0; background: white; padding: 15px; border-radius: 5px; font-size: 11px; line-height: 1.4;">
+// Abilita CORS per WooCommerce API<br>
+add_action('rest_api_init', function() {<br>
+&nbsp;&nbsp;header('Access-Control-Allow-Origin: *');<br>
+&nbsp;&nbsp;header('Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE');<br>
+&nbsp;&nbsp;header('Access-Control-Allow-Headers: Content-Type, Authorization');<br>
+});<br><br>
+
+// Gestisci richieste OPTIONS<br>
+add_action('init', function() {<br>
+&nbsp;&nbsp;if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;header('Access-Control-Allow-Origin: *');<br>
+&nbsp;&nbsp;&nbsp;&nbsp;header('Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE');<br>
+&nbsp;&nbsp;&nbsp;&nbsp;header('Access-Control-Allow-Headers: Content-Type, Authorization');<br>
+&nbsp;&nbsp;&nbsp;&nbsp;exit(0);<br>
+&nbsp;&nbsp;}<br>
+});
+                        </code>
+                        
+                        <strong>OPPURE installa il plugin "CORS Plugin" dal repository WordPress</strong>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <button class="btn btn-primary" onclick="this.closest('div[style*=\"position: fixed\"]').remove()">Chiudi</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+        console.log('Shortcut da tastiera disponibili:');
+        console.log('- Ctrl/Cmd + S: Esporta CSV');
+        console.log('- Ctrl/Cmd + H: Mostra cronologia esportazioni');
+        console.log('- Ctrl/Cmd + R: Ricarica pagina');
+    </script>
+</body>
+</html>
